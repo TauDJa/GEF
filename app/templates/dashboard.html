@@ -1,0 +1,269 @@
+{% extends "layout.html" %}
+
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-chart-line"></i> Dashboard</h2>
+        <a href="{{ url_for('main.add_gef') }}" class="btn btn-success">
+            <i class="fas fa-plus-circle"></i> Ajouter un nouveau GEF
+        </a>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary h-100">
+                <div class="card-header"><span><i class="fas fa-building"></i> Total GEFs</span></div>
+                <div class="card-body"><h4 class="card-title">{{ gef_count }}</h4></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info h-100">
+                <div class="card-header"><span><i class="fas fa-users"></i> Total Employees</span></div>
+                <div class="card-body"><h4 class="card-title">{{ personnel_count }}</h4></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success h-100">
+                <div class="card-header"><span><i class="fas fa-map-marker-alt"></i> Wilayas Covered</span></div>
+                <div class="card-body"><h4 class="card-title">{{ wilaya_count }}</h4></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-search"></i> Sélectionner un GEF</h5>
+                </div>
+                <div class="card-body">
+                    <select class="form-select" id="gefSelect">
+                        <option value="">-- Charger les GEFs --</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="detailsContainer" class="mt-4" style="display: none;">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Détails du GEF</h5>
+                        <div id="gefActionButtons"></div>
+                    </div>
+                    <div class="card-body" id="gefDetails"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-dark text-white"><h5 class="mb-0"><i class="fas fa-users"></i> Personnel</h5></div>
+                    <div class="card-body" id="employeesSection"></div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-dark text-white"><h5 class="mb-0"><i class="fas fa-tools"></i> Équipements</h5></div>
+                    <div class="card-body" id="equipmentsSection"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+             <div class="col-lg-12 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-dark text-white"><h5 class="mb-0"><i class="fas fa-file-contract"></i> Agréments</h5></div>
+                    <div class="card-body" id="agrementsSection"></div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // ✅ NOUVEAU CODE POUR ACTIVER SELECT2
+    $(document).ready(function() {
+        $('#gefSelect').select2({
+            placeholder: "-- Recherchez et sélectionnez un GEF --",
+            allowClear: true
+        });
+    });
+    // FIN DU NOUVEAU CODE
+
+    const gefSelect = document.getElementById('gefSelect');
+    const detailsContainer = document.getElementById('detailsContainer');
+
+    // --- Functions to render data ---
+    const renderLoading = (element) => {
+        element.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 mb-0">Chargement...</p></div>';
+    };
+
+    const renderPlaceholder = (element, icon, text) => {
+        element.innerHTML = `<div class="text-center text-muted p-4"><i class="fas ${icon} fa-2x mb-2"></i><p>${text}</p></div>`;
+    };
+    
+    // --- Load GEFs into dropdown ---
+    function loadGEFs() {
+        fetch('/api/gefs')
+            .then(response => response.json())
+            .then(data => {
+                gefSelect.innerHTML = '<option value="">-- Sélectionnez un GEF --</option>';
+                data.gefs.forEach(gef => {
+                    const option = document.createElement('option');
+                    option.value = gef.numero;
+                    option.textContent = `${gef.nom} (N° ${gef.numero})`;
+                    gefSelect.appendChild(option);
+                });
+                // On notifie Select2 que les options ont changé
+                $(gefSelect).trigger('change');
+            })
+            .catch(error => console.error('Error loading GEFs:', error));
+    }
+
+    // --- Load all details for a selected GEF ---
+    function loadGEFDetails(gefNumero) {
+        detailsContainer.style.display = 'block';
+        const gefDetailsDiv = document.getElementById('gefDetails');
+        const employeesDiv = document.getElementById('employeesSection');
+        const equipmentsDiv = document.getElementById('equipmentsSection');
+        const agrementsDiv = document.getElementById('agrementsSection');
+        
+        renderLoading(gefDetailsDiv);
+        renderLoading(employeesDiv);
+        renderLoading(equipmentsDiv);
+        renderLoading(agrementsDiv);
+
+        fetch(`/api/gef/${gefNumero}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+
+                // 1. Render GEF Info
+                if (data.gef) {
+    // ✅ CODE D'AFFICHAGE CORRIGÉ ET COMPLET
+                    gefDetailsDiv.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item"><strong>N° d'agrément:</strong> ${data.gef.numero} (obtenu le ${data.gef.date_obt || 'N/A'})</li>
+                                    <li class="list-group-item"><strong>Nom & Prénom:</strong> ${data.gef.nom}</li>
+                                    <li class="list-group-item"><strong>Né(e) le:</strong> ${data.gef.date_naiss || 'N/A'}</li>
+                                    <li class="list-group-item"><strong>Lieu de naissance:</strong> ${data.gef.commune_naissance || ''}, ${data.gef.wilaya_naissance || 'N/A'}</li>
+                                    <li class="list-group-item"><strong>Email:</strong> ${data.gef.email || 'N/A'}</li>
+                                    <li class="list-group-item"><strong>NIM:</strong> ${data.gef.nim || 'N/A'}</li>
+                                    <li class="list-group-item"><strong>NIF:</strong> ${data.gef.nif || 'N/A'}</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item"><strong>Adresse:</strong> ${data.gef.adresse || 'N/A'}</li>
+                                    <li class="list-group-item"><strong>Commune:</strong> ${data.gef.commune_adresse || 'N/A'}</li>
+                                    <li class="list-group-item"><strong>Wilaya:</strong> ${data.gef.wilaya_adresse || 'N/A'}</li>
+                                    <li class="list-group-item"><strong>Statut Bureau:</strong> ${data.gef.statut_bureau || 'N/A'}</li>
+                                    <li class="list-group-item"><strong>Situation:</strong> <span class="badge bg-${data.gef.situation === 'actif' ? 'success' : 'danger'}">${data.gef.situation}</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <h6 class="mt-3">Téléphones</h6>
+                        ${data.telephones.length > 0 ? `
+                            <ul class="list-group list-group-flush">
+                                ${data.telephones.map(t => `<li class="list-group-item"><strong>${t.type}:</strong> ${t.numero}</li>`).join('')}
+                            </ul>
+                        ` : '<p class="text-muted">Aucun téléphone trouvé.</p>'}
+                        <h6 class="mt-4 pt-3 border-top">Observations</h6>
+                        <p class="text-muted fst-italic small">${data.gef.observations || 'Aucune observation.'}</p>
+                    `;
+
+                    const actionButtonsDiv = document.getElementById('gefActionButtons');
+                    actionButtonsDiv.innerHTML = `
+                        <div>
+                            <a href="/gef/edit/${data.gef.numero}" class="btn btn-warning btn-sm">
+                                <i class="fas fa-edit"></i> Modifier
+                            </a>
+                            <form action="/gef/delete/${data.gef.numero}" method="POST" class="d-inline" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce GEF et toutes ses données ? Cette action est irréversible.');">
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-trash"></i> Supprimer
+                                </button>
+                            </form>
+                        </div>
+                    `;
+                } else {
+                    renderPlaceholder(gefDetailsDiv, 'fa-exclamation-circle', 'Détails non trouvés.');
+                }
+                
+                // 2. Render Employees
+                if (data.employees && data.employees.length > 0) {
+                    let html = '<ul class="list-group list-group-flush">';
+                    data.employees.forEach(emp => {
+                        html += `<li class="list-group-item">${emp.nom} ${emp.prenom} <span class="text-muted small">- ${emp.profile || 'Profil non défini'}</span></li>`;
+                    });
+                    html += '</ul>';
+                    employeesDiv.innerHTML = html;
+                } else {
+                    renderPlaceholder(employeesDiv, 'fa-user-slash', 'Aucun personnel trouvé.');
+                }
+
+                // 3. Render Equipments
+                if (data.equipments && data.equipments.length > 0) {
+                    let html = '<ul class="list-group list-group-flush">';
+                    data.equipments.forEach(eq => {
+                        html += `<li class="list-group-item d-flex justify-content-between align-items-center">${eq.nom} <span class="badge bg-primary rounded-pill">${eq.quantite}</span></li>`;
+                    });
+                    html += '</ul>';
+                    equipmentsDiv.innerHTML = html;
+                } else {
+                    renderPlaceholder(equipmentsDiv, 'fa-box-open', 'Aucun équipement trouvé.');
+                }
+
+                // 4. Render Agreements
+                if (data.agrements && data.agrements.length > 0) {
+                    let html = '<ul class="list-group list-group-flush">';
+                    data.agrements.forEach(ag => {
+                        html += `<li class="list-group-item">${ag.nom} <span class="text-muted small">- Obtenu le: ${ag.date || 'N/A'}</span></li>`;
+                    });
+                    html += '</ul>';
+                    agrementsDiv.innerHTML = html;
+                } else {
+                    renderPlaceholder(agrementsDiv, 'fa-file-excel', 'Aucun agrément trouvé.');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading GEF details:', error);
+                document.getElementById('gefDetails').innerHTML = `<div class="alert alert-danger">Erreur lors du chargement des détails.</div>`;
+            });
+    }
+    
+    function clearDetails() {
+        detailsContainer.style.display = 'none';
+    }
+
+    // --- Event Listener ---
+    // On utilise JQuery pour l'événement 'change' de Select2
+    $('#gefSelect').on('change', function() {
+        const gefNumero = this.value;
+        if (gefNumero) {
+            loadGEFDetails(gefNumero);
+        } else {
+            clearDetails();
+        }
+    });
+
+    // --- Initial Load ---
+    loadGEFs();
+});
+</script>
+{% endblock %}
