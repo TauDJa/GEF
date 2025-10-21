@@ -4,10 +4,15 @@
 import os
 import subprocess
 import traceback
+import uuid
 from urllib.parse import urlparse
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import (
+    Blueprint, render_template, request, redirect, url_for, flash, jsonify,
+    send_from_directory, current_app
+)
+from werkzeug.utils import secure_filename
 from sqlalchemy.orm import joinedload
-from datetime import datetime # Assurez-vous d'avoir cet import
+from datetime import datetime
 
 # --- Import de vos Modèles ---
 from .models import db, Gef, Personnel, Wilaya, Commune, Telephone, TypeEquipement, Agrement, GefEquipement, GefAgrement
@@ -16,7 +21,41 @@ from .models import db, Gef, Personnel, Wilaya, Commune, Telephone, TypeEquipeme
 main_bp = Blueprint('main', __name__)
 
 
-# === Route 1 : Le Tableau de Bord Principal ===
+# ... (Helpers 'allowed_file', 'save_photo', 'delete_photo' inchangés) ...
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def save_photo(file_storage):
+    if not file_storage or file_storage.filename == '':
+        return None
+    filename = secure_filename(file_storage.filename)
+    if not allowed_file(filename):
+        return None
+    extension = filename.rsplit('.', 1)[1].lower()
+    unique_filename = f"{uuid.uuid4()}.{extension}"
+    save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+    file_storage.save(save_path)
+    return unique_filename
+
+def delete_photo(filename):
+    if not filename:
+        return
+    try:
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        print(f"Erreur lors de la suppression de l'ancienne photo {filename}: {e}")
+
+# ... (Route 'get_uploaded_file' inchangée) ...
+@main_bp.route('/uploads/<path:filename>')
+def get_uploaded_file(filename):
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+
+# ... (Route 'dashboard' inchangée) ...
 @main_bp.route('/')
 def dashboard():
     # (Le code du dashboard reste inchangé)
@@ -47,8 +86,7 @@ def dashboard():
 
     return render_template('dashboard.html', gef_count=gef_count, personnel_count=personnel_count, wilaya_count=wilaya_count)
 
-
-# === Route 2 : Le Formulaire pour Ajouter un GEF ===
+# ... (Route 'add_gef' inchangée) ...
 @main_bp.route('/gef/add', methods=['GET', 'POST'])
 def add_gef():
     # --- LOGIQUE POST ---
@@ -65,6 +103,9 @@ def add_gef():
             date_naissance_str = request.form.get('date_naiss')
             date_naissance_obj = datetime.strptime(date_naissance_str, '%Y-%m-%d').date() if date_naissance_str else None
 
+            photo_file = request.files.get('photo')
+            saved_filename = save_photo(photo_file)
+
             new_gef = Gef(
                 numero=gef_numero,
                 date_obt=date_obj, 
@@ -77,12 +118,11 @@ def add_gef():
                 commune_c=request.form.get('commune_c'),
                 statut_bureau=request.form.get('statut_bureau'),
                 situation=request.form.get('situation'),
-                observations=request.form.get('observations') # ✅ Ajout
+                observations=request.form.get('observations'),
+                photo_filename=saved_filename
             )
             db.session.add(new_gef)
             
-            # --- Ajout des éléments liés ---
-            # (le code pour personnel, telephones, etc. reste inchangé)
             for nom, prenom, profile in zip(request.form.getlist('personnel_nom'), request.form.getlist('personnel_prenom'), request.form.getlist('personnel_profile')):
                  db.session.add(Personnel(nom=nom, prenom=prenom, profile=profile, n_gef=gef_numero))
             for type_tel, num in zip(request.form.getlist('telephone_type'), request.form.getlist('telephone_numero')):
@@ -97,7 +137,6 @@ def add_gef():
             return redirect(url_for('main.dashboard'))
 
         except Exception as e:
-            # (gestion d'erreur inchangée)
             print("---! ERREUR LORS DE L'ENREGISTREMENT DU GEF !---")
             traceback.print_exc()
             print("-------------------------------------------------")
@@ -106,7 +145,6 @@ def add_gef():
             return redirect(url_for('main.add_gef'))
 
     # --- LOGIQUE GET ---
-    # (le code GET reste inchangé)
     wilayas, type_equipements, agrements = [], [], []
     try:
         wilayas = Wilaya.query.order_by(Wilaya.nom_wilaya).all()
@@ -122,11 +160,9 @@ def add_gef():
         agrements=agrements
     )
 
-
-# === Route 3 : Affichage du Formulaire de Modification ===
+# ... (Route 'edit_gef' inchangée) ...
 @main_bp.route('/gef/edit/<int:gef_numero>', methods=['GET'])
 def edit_gef(gef_numero):
-    # (le code GET pour edit reste inchangé)
     try:
         gef = Gef.query.filter_by(numero=gef_numero).options(joinedload(Gef.commune).joinedload(Commune.wilaya)).first_or_404()
         personnels = Personnel.query.filter_by(n_gef=gef_numero).all()
@@ -150,22 +186,24 @@ def edit_gef(gef_numero):
         flash(f"Erreur lors du chargement du formulaire de modification : {e}", 'danger')
         return redirect(url_for('main.dashboard'))
 
-
-# === Route 4 : Sauvegarde des Modifications ===
+# ... (Route 'update_gef' inchangée) ...
 @main_bp.route('/gef/update/<int:gef_numero>', methods=['POST'])
 def update_gef(gef_numero):
     try:
         gef_to_update = Gef.query.filter_by(numero=gef_numero).first_or_404()
 
-        # --- Mise à jour des dates ---
+        photo_file = request.files.get('photo')
+        if photo_file and photo_file.filename != '':
+            new_filename = save_photo(photo_file)
+            delete_photo(gef_to_update.photo_filename)
+            gef_to_update.photo_filename = new_filename
+
         date_str = request.form.get('date_obt')
         gef_to_update.date_obt = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
         
-        # ✅ LIGNES MANQUANTES AJOUTÉES ICI
         date_naissance_str = request.form.get('date_naiss')
         gef_to_update.date_naiss = datetime.strptime(date_naissance_str, '%Y-%m-%d').date() if date_naissance_str else None
         
-        # --- Mise à jour des autres champs ---
         gef_to_update.n_p = request.form.get('n_p')
         gef_to_update.nim = request.form.get('nim') or None
         gef_to_update.nif = request.form.get('nif') or None
@@ -178,7 +216,6 @@ def update_gef(gef_numero):
         gef_to_update.lieu_naiss_wc = request.form.get('lieu_naiss_wc') or None
         gef_to_update.lieu_naiss_cc = request.form.get('lieu_naiss_cc') or None
         
-        # --- Stratégie "Effacer et Recréer" ---
         Personnel.query.filter_by(n_gef=gef_numero).delete()
         for nom, prenom, profile in zip(request.form.getlist('personnel_nom'), request.form.getlist('personnel_prenom'), request.form.getlist('personnel_profile')):
              db.session.add(Personnel(nom=nom, prenom=prenom, profile=profile, n_gef=gef_numero))
@@ -207,14 +244,13 @@ def update_gef(gef_numero):
 
     return redirect(url_for('main.dashboard'))
 
-
-# === Route 5 : Suppression d'un GEF ===
+# ... (Route 'delete_gef' inchangée) ...
 @main_bp.route('/gef/delete/<int:gef_numero>', methods=['POST'])
 def delete_gef(gef_numero):
-    # (le code delete reste inchangé)
     try:
         gef_to_delete = Gef.query.filter_by(numero=gef_numero).first()
         if gef_to_delete:
+            delete_photo(gef_to_delete.photo_filename)
             db.session.delete(gef_to_delete)
             db.session.commit()
             flash(f"Le GEF N°{gef_numero} a été supprimé avec succès.", 'success')
@@ -237,6 +273,11 @@ def filter_gefs():
     statut_bureau = request.args.get('statut_bureau')
     situation = request.args.get('situation')
     
+    # ✅ NOUVEAUX PARAMÈTRES POUR LE PERSONNEL
+    personnel_nom = request.args.get('personnel_nom')
+    personnel_prenom = request.args.get('personnel_prenom')
+    personnel_profile = request.args.get('personnel_profile')
+    
     # --- 2. Construction de la requête de base ---
     query = Gef.query.options(
         joinedload(Gef.commune).joinedload(Commune.wilaya),
@@ -245,6 +286,7 @@ def filter_gefs():
     )
 
     # --- 3. Application des filtres ---
+    # Filtres GEF (inchangés)
     if selected_wilaya:
         query = query.join(Gef.commune).filter(Commune.code_wilaya == selected_wilaya)
     if selected_commune:
@@ -258,8 +300,22 @@ def filter_gefs():
     if selected_equipements:
         query = query.join(Gef.equipement_links).filter(GefEquipement.id_type.in_(selected_equipements))
 
+    # ✅ NOUVEAUX FILTRES POUR LE PERSONNEL
+    # On fait la jointure seulement si un des champs est rempli
+    if personnel_nom or personnel_prenom or personnel_profile:
+        query = query.join(Gef.personnels) # Utilise la relation 'personnels'
+        
+        if personnel_nom:
+            # .ilike() est insensible à la casse (majuscule/minuscule)
+            query = query.filter(Personnel.nom.ilike(f'%{personnel_nom}%'))
+        if personnel_prenom:
+            query = query.filter(Personnel.prenom.ilike(f'%{personnel_prenom}%'))
+        if personnel_profile:
+            query = query.filter(Personnel.profile == personnel_profile)
+
     # --- 4. Exécution de la requête ---
-    gefs_results = query.all()
+    # .distinct() est important pour éviter les doublons si un GEF a plusieurs personnels
+    gefs_results = query.distinct().all()
 
     # --- 5. Chargement des données pour les menus déroulants ---
     try:
@@ -289,16 +345,20 @@ def filter_gefs():
         selected_agrements=selected_agrements,
         selected_equipements=selected_equipements,
         statut_bureau=statut_bureau,
-        situation=situation
+        situation=situation,
+        # ✅ AJOUTÉ : renvoyer les valeurs du personnel au template
+        personnel_nom=personnel_nom,
+        personnel_prenom=personnel_prenom,
+        personnel_profile=personnel_profile
     )
 
+
+# ... (Toutes les routes API restent inchangées) ...
 
 # === SECTION API (pour le JavaScript) ===
 
 @main_bp.route('/api/communes/<int:wilaya_code>')
 def get_communes_by_wilaya(wilaya_code):
-    """API pour lister les communes d'une wilaya spécifique."""
-    # (le code reste inchangé)
     try:
         communes = Commune.query.filter_by(code_wilaya=wilaya_code).order_by(Commune.nom_commun).all()
         communes_list = [{'code': c.code_commu, 'nom': c.nom_commun} for c in communes]
@@ -308,8 +368,6 @@ def get_communes_by_wilaya(wilaya_code):
 
 @main_bp.route('/api/gefs')
 def get_gefs():
-    """API pour lister tous les GEFs (pour le menu déroulant)"""
-    # (le code reste inchangé)
     try:
         database_url = os.environ.get('DATABASE_URL', '')
         # database_url = "postgresql://postgres:12345678@localhost:5432/ogef" 
@@ -331,8 +389,6 @@ def get_gefs():
 
 @main_bp.route('/api/gef/<int:gef_numero>')
 def get_gef_details(gef_numero):
-    """API pour récupérer tous les détails d'un GEF spécifique"""
-    # (le code reste inchangé mais vérifié pour observations)
     try:
         database_url = os.environ.get('DATABASE_URL', '')
         # database_url = "postgresql://postgres:12345678@localhost:5432/ogef" 
@@ -342,7 +398,6 @@ def get_gef_details(gef_numero):
         env['PGCLIENTENCODING'] = 'latin1'
         details = {}
         queries = {
-            # ✅ Requête GEF incluant observations et date_obt
             "gef": f"""
                 SELECT 
                     g.numero, g.n_p, g.email, g.adresse, g.statut_bureau, g.situation, 
@@ -351,7 +406,8 @@ def get_gef_details(gef_numero):
                     c_adresse.nom_commun AS commune_adresse,
                     w_adresse.nom_wilaya AS wilaya_adresse,
                     c_naiss.nom_commun AS commune_naissance,
-                    w_naiss.nom_wilaya AS wilaya_naissance
+                    w_naiss.nom_wilaya AS wilaya_naissance,
+                    g.photo_filename
                 FROM gef g
                 LEFT JOIN commune c_adresse ON g.commune_c = c_adresse.code_commu
                 LEFT JOIN wilaya w_adresse ON c_adresse.code_wilaya = w_adresse.code
@@ -375,8 +431,7 @@ def get_gef_details(gef_numero):
                 for line in lines:
                     parts = line.split('|')
                     if key == "gef":
-                         # ✅ ON VÉRIFIE MAINTENANT 15 COLONNES
-                         if len(parts) >= 15:
+                         if len(parts) >= 16:
                             details[key] = {
                                 'numero': parts[0], 'nom': parts[1], 'email': parts[2], 'adresse': parts[3], 
                                 'statut_bureau': parts[4], 'situation': parts[5], 'observations': parts[6], 
@@ -385,7 +440,8 @@ def get_gef_details(gef_numero):
                                 'commune_adresse': parts[11],
                                 'wilaya_adresse': parts[12],
                                 'commune_naissance': parts[13],
-                                'wilaya_naissance': parts[14]
+                                'wilaya_naissance': parts[14],
+                                'photo_filename': parts[15]
                             }
                          break
                     elif key == "employees": data_list.append({'nom': parts[0], 'prenom': parts[1], 'profile': parts[2]})

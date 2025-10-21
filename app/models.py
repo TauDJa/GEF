@@ -48,6 +48,9 @@ class Gef(db.Model):
     #lieu_naiss_wc = db.Column(db.Integer, db.ForeignKey('wilaya.code'))
     #lieu_naiss_cc = db.Column(db.Integer, db.ForeignKey('commune.code_commu'))
     
+    # ✅ AJOUTÉ : Champ pour la photo
+    photo_filename = db.Column(db.String(255), nullable=True)
+    
     # Many-to-1: This Gef belongs to one Commune
     commune = db.relationship('Commune', back_populates='gefs')
     

@@ -27,8 +27,9 @@
         </div>
         <div class="card-body">
             <form action="{{ url_for('main.filter_gefs') }}" method="GET">
+                
+                <h5 class="mb-3">Filtres GEF</h5>
                 <div class="row">
-                    <!-- Filtre Wilaya -->
                     <div class="col-md-4 mb-3">
                         <label for="wilayaSelect" class="form-label">Wilaya</label>
                         <select class="form-select" id="wilayaSelect" name="wilaya">
@@ -38,7 +39,6 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <!-- Filtre Commune -->
                     <div class="col-md-4 mb-3">
                         <label for="communeSelect" class="form-label">Commune</label>
                         <select class="form-select" id="communeSelect" name="commune" {% if not selected_wilaya %}disabled{% endif %}>
@@ -48,8 +48,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                     <!-- Filtre Statut Bureau -->
-                    <div class="col-md-4 mb-3">
+                     <div class="col-md-4 mb-3">
                         <label for="statut_bureau" class="form-label">Statut du bureau</label>
                         <select class="form-select" id="statut_bureau" name="statut_bureau">
                             <option value="">-- Tous --</option>
@@ -58,10 +57,8 @@
                         </select>
                     </div>
                 </div>
-
                 <div class="row">
-                   <!-- Filtre Situation -->
-                    <div class="col-md-4 mb-3">
+                   <div class="col-md-4 mb-3">
                         <label for="situation" class="form-label">Situation</label>
                         <select class="form-select" id="situation" name="situation">
                             <option value="">-- Toutes --</option>
@@ -70,8 +67,7 @@
                             <option value="suspendu" {% if situation == 'suspendu' %}selected{% endif %}>Suspendu</option>
                         </select>
                     </div>
-                     <!-- Filtre Agréments -->
-                    <div class="col-md-8 mb-3">
+                     <div class="col-md-8 mb-3">
                         <label for="agrementsSelect" class="form-label">Agréments (doit posséder tous les agréments sélectionnés)</label>
                         <select class="form-select" id="agrementsSelect" name="agrements" multiple>
                             {% for agrement in agrements %}
@@ -80,14 +76,36 @@
                         </select>
                     </div>
                 </div>
-
-                <!-- Filtre Equipements -->
                  <div class="row">
                     <div class="col-md-12 mb-3">
                         <label for="equipementsSelect" class="form-label">Équipements (doit posséder tous les équipements sélectionnés)</label>
                         <select class="form-select" id="equipementsSelect" name="equipements" multiple>
                            {% for equipement in type_equipements %}
                                 <option value="{{ equipement.id_type }}" {% if equipement.id_type in selected_equipements %}selected{% endif %}>{{ equipement.nom_type }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <hr>
+
+                <h5 class="mb-3">Filtres Personnel</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="personnel_nom" class="form-label">Nom du personnel</label>
+                        <input type="text" class="form-control" id="personnel_nom" name="personnel_nom" value="{{ personnel_nom or '' }}" placeholder="Rechercher par nom...">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="personnel_prenom" class="form-label">Prénom du personnel</label>
+                        <input type="text" class="form-control" id="personnel_prenom" name="personnel_prenom" value="{{ personnel_prenom or '' }}" placeholder="Rechercher par prénom...">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="personnel_profile" class="form-label">Profil du personnel</label>
+                        <select class="form-select" id="personnel_profile" name="personnel_profile">
+                            <option value="">-- Tous les profils --</option>
+                            {% set profiles = ["Stagiaire", "Ingénieur", "Technicien Supérieur", "Topographe", "Secrétaire", "Autre"] %}
+                            {% for profile in profiles %}
+                                <option value="{{ profile }}" {% if personnel_profile == profile %}selected{% endif %}>{{ profile }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -153,8 +171,9 @@ $(document).ready(function() {
     $('#communeSelect').select2({ placeholder: "-- Toutes les communes --", allowClear: true });
     $('#agrementsSelect').select2({ placeholder: "Sélectionnez un ou plusieurs agréments", allowClear: true });
     $('#equipementsSelect').select2({ placeholder: "Sélectionnez un ou plusieurs équipements", allowClear: true });
+    // ✅ PAS BESOIN DE SELECT2 POUR LES NOUVEAUX CHAMPS (sauf si vous le souhaitez)
 
-    // Logique de chargement dynamique des communes
+    // Logique de chargement dynamique des communes (inchangée)
     $('#wilayaSelect').on('change', function() {
         const wilayaCode = $(this).val();
         const communeSelect = $('#communeSelect');

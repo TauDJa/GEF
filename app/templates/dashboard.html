@@ -159,38 +159,72 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // 1. Render GEF Info
                 if (data.gef) {
-    // ✅ CODE D'AFFICHAGE CORRIGÉ ET COMPLET
+                    // ✅ NOUVELLE STRUCTURE D'AFFICHAGE AVEC PHOTO
+                    
+                    let photoHtml = '';
+                    if (data.gef.photo_filename) {
+                        // Utilise la route /uploads/ pour afficher l'image
+                        photoHtml = `<img src="/uploads/${data.gef.photo_filename}" alt="Photo de ${data.gef.nom}" class="img-fluid rounded mb-3" style="max-height: 250px; width: auto;">`;
+                    } else {
+                        // Placeholder si pas de photo
+                        photoHtml = `
+                            <div class="text-center text-muted p-4 border rounded mb-3" style="min-height: 150px; display: grid; place-items: center;">
+                                <div>
+                                    <i class="fas fa-user fa-5x"></i>
+                                    <p class="mt-2 mb-0 small">Aucune photo</p>
+                                </div>
+                            </div>`;
+                    }
+
                     gefDetailsDiv.innerHTML = `
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-3">
+                                ${photoHtml}
+                            </div>
+                            
+                            <div class="col-md-9">
                                 <ul class="list-group list-group-flush">
                                     <li class="list-group-item"><strong>N° d'agrément:</strong> ${data.gef.numero} (obtenu le ${data.gef.date_obt || 'N/A'})</li>
                                     <li class="list-group-item"><strong>Nom & Prénom:</strong> ${data.gef.nom}</li>
                                     <li class="list-group-item"><strong>Né(e) le:</strong> ${data.gef.date_naiss || 'N/A'}</li>
                                     <li class="list-group-item"><strong>Lieu de naissance:</strong> ${data.gef.commune_naissance || ''}, ${data.gef.wilaya_naissance || 'N/A'}</li>
+                                    <li class="list-group-item"><strong>Situation:</strong> <span class="badge bg-${data.gef.situation === 'actif' ? 'success' : 'danger'}">${data.gef.situation}</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <h6>Contact & Identification</h6>
+                                <ul class="list-group list-group-flush">
                                     <li class="list-group-item"><strong>Email:</strong> ${data.gef.email || 'N/A'}</li>
                                     <li class="list-group-item"><strong>NIM:</strong> ${data.gef.nim || 'N/A'}</li>
                                     <li class="list-group-item"><strong>NIF:</strong> ${data.gef.nif || 'N/A'}</li>
                                 </ul>
+                                
+                                <h6 class="mt-3">Téléphones</h6>
+                                ${data.telephones.length > 0 ? `
+                                    <ul class="list-group list-group-flush">
+                                        ${data.telephones.map(t => `<li class="list-group-item"><strong>${t.type}:</strong> ${t.numero}</li>`).join('')}
+                                    </ul>
+                                ` : '<p class="text-muted small">Aucun téléphone trouvé.</p>'}
                             </div>
+                            
                             <div class="col-md-6">
+                                <h6>Localisation & Bureau</h6>
                                 <ul class="list-group list-group-flush">
                                     <li class="list-group-item"><strong>Adresse:</strong> ${data.gef.adresse || 'N/A'}</li>
                                     <li class="list-group-item"><strong>Commune:</strong> ${data.gef.commune_adresse || 'N/A'}</li>
                                     <li class="list-group-item"><strong>Wilaya:</strong> ${data.gef.wilaya_adresse || 'N/A'}</li>
                                     <li class="list-group-item"><strong>Statut Bureau:</strong> ${data.gef.statut_bureau || 'N/A'}</li>
-                                    <li class="list-group-item"><strong>Situation:</strong> <span class="badge bg-${data.gef.situation === 'actif' ? 'success' : 'danger'}">${data.gef.situation}</span></li>
                                 </ul>
+                                
+                                <h6 class="mt-4">Observations</h6>
+                                <p class="text-muted fst-italic small">${data.gef.observations || 'Aucune observation.'}</p>
                             </div>
                         </div>
-                        <h6 class="mt-3">Téléphones</h6>
-                        ${data.telephones.length > 0 ? `
-                            <ul class="list-group list-group-flush">
-                                ${data.telephones.map(t => `<li class="list-group-item"><strong>${t.type}:</strong> ${t.numero}</li>`).join('')}
-                            </ul>
-                        ` : '<p class="text-muted">Aucun téléphone trouvé.</p>'}
-                        <h6 class="mt-4 pt-3 border-top">Observations</h6>
-                        <p class="text-muted fst-italic small">${data.gef.observations || 'Aucune observation.'}</p>
                     `;
 
                     const actionButtonsDiv = document.getElementById('gefActionButtons');

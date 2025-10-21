@@ -8,7 +8,7 @@
     </div>
     <hr>
 
-    <form action="{{ url_for('main.add_gef') }}" method="POST">
+    <form action="{{ url_for('main.add_gef') }}" method="POST" enctype="multipart/form-data">
         
         <div class="card mb-4">
             <div class="card-header bg-dark text-white">
@@ -40,7 +40,17 @@
                         <label for="lieu_naiss_cc" class="form-label">Commune de naissance</label>
                         <input type="text" class="form-control" id="lieu_naiss_cc" name="lieu_naiss_cc">
                     </div>
-                </div> <div class="row">
+                </div> 
+                
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="photo" class="form-label">Photo du GEF (Optionnel)</label>
+                        <input class="form-control" type="file" id="photo" name="photo" accept="image/png, image/jpeg, image/jpg">
+                        <small class="form-text text-muted">Formats acceptés : .png, .jpg, .jpeg</small>
+                    </div>
+                </div>
+                
+                <div class="row">
                     <div class="col-md-6 mb-3">
                         <label for="nim" class="form-label">NIM (Numéro d'Immatriculation)</label>
                         <input type="number" class="form-control" id="nim" name="nim">
@@ -151,19 +161,14 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    // ✅ NOUVEAU BLOC DE SCRIPT COMPLET
+    // Script de chargement dynamique Wilaya/Commune (inchangé)
     $(document).ready(function() {
-        // --- Activation de Select2 ---
         $('#wilayaSelect').select2({ placeholder: "-- Recherchez une wilaya --" });
         $('#commune_c').select2({ placeholder: "-- Recherchez une commune --" });
-
-        // --- Logique de filtrage dynamique ---
         $('#wilayaSelect').on('change', function() {
             const wilayaCode = $(this).val();
             const communeSelect = $('#commune_c');
-
             communeSelect.empty().append('<option value="">Chargement...</option>').prop('disabled', true).trigger('change');
-
             if (wilayaCode) {
                 fetch(`/api/communes/${wilayaCode}`)
                     .then(response => response.json())
@@ -191,10 +196,22 @@
         const container = document.getElementById('personnel-container');
         const newPersonnel = document.createElement('div');
         newPersonnel.className = 'row align-items-center mb-2 personnel-row';
+        
+        // ✅ MODIFIÉ : Remplacé l'input "profil" par un <select>
         newPersonnel.innerHTML = `
             <div class="col-md-4"><input type="text" name="personnel_nom" class="form-control" placeholder="Nom" required></div>
             <div class="col-md-3"><input type="text" name="personnel_prenom" class="form-control" placeholder="Prénom" required></div>
-            <div class="col-md-4"><input type="text" name="personnel_profile" class="form-control" placeholder="Profil (ex: Ingénieur)" required></div>
+            <div class="col-md-4">
+                <select name="personnel_profile" class="form-select" required>
+                    <option value="">-- Sélectionnez un profil --</option>
+                    <option value="Stagiaire">Stagiaire</option>
+                    <option value="Ingénieur">Ingénieur</option>
+                    <option value="Technicien Supérieur">Technicien Supérieur</option>
+                    <option value="Topographe">Topographe</option>
+                    <option value="Secrétaire">Secrétaire</option>
+                    <option value="Autre">Autre</option>
+                </select>
+            </div>
             <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.personnel-row').remove()"><i class="fas fa-trash"></i></button></div>
         `;
         container.appendChild(newPersonnel);
