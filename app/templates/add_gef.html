@@ -1,0 +1,239 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2><i class="fas fa-edit"></i> Ajouter un nouveau Géomètre-Expert Foncier</h2>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">Retour au Dashboard</a>
+    </div>
+    <hr>
+
+    <form action="{{ url_for('main.add_gef') }}" method="POST">
+        
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                Informations Principales
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="numero" class="form-label">Numéro d'agrément *</label>
+                        <input type="number" class="form-control" id="numero" name="numero" required>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="date_obt" class="form-label">Date d'obtention</label>
+                        <input type="date" class="form-control" id="date_obt" name="date_obt">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="n_p" class="form-label">Nom & Prénom *</label>
+                        <input type="text" class="form-control" id="n_p" name="n_p" required>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label for="date_naissance" class="form-label">Né(e) le</label>
+                        <input type="date" class="form-control" id="date_naissance" name="date_naiss">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="lieu_naiss_wc" class="form-label">Lieu de naissance</label>
+                        <input type="text" class="form-control" id="lieu_naiss_wc" name="lieu_naiss_wc">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="lieu_naiss_cc" class="form-label">Commune de naissance</label>
+                        <input type="text" class="form-control" id="lieu_naiss_cc" name="lieu_naiss_cc">
+                    </div>
+                </div> <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="nim" class="form-label">NIM (Numéro d'Immatriculation)</label>
+                        <input type="number" class="form-control" id="nim" name="nim">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="nif" class="form-label">NIF (Numéro d'Identification Fiscale)</label>
+                        <input type="number" class="form-control" id="nif" name="nif">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="wilayaSelect" class="form-label">Wilaya *</label>
+                        <select class="form-select" id="wilayaSelect" required>
+                            <option value="">-- Sélectionnez une wilaya --</option>
+                            {% for wilaya in wilayas %}
+                                <option value="{{ wilaya.code }}">{{ wilaya.nom_wilaya }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="commune_c" class="form-label">Commune *</label>
+                        <select class="form-select" id="commune_c" name="commune_c" required disabled>
+                            <option value="">-- D'abord, sélectionnez une wilaya --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="adresse" class="form-label">Adresse</label>
+                    <textarea class="form-control" id="adresse" name="adresse" rows="2"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="statut_bureau" class="form-label">Statut du bureau</label>
+                        <select class="form-select" id="statut_bureau" name="statut_bureau">
+                            <option value="Prop">Propriétaire</option>
+                            <option value="Loc">Locataire</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="situation" class="form-label">Situation</label>
+                        <select class="form-select" id="situation" name="situation">
+                            <option value="actif">Actif</option>
+                            <option value="mise en dispo">Mise en dispo</option>
+                            <option value="suspendu">Suspendu</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observations" class="form-label">Observations / Notes</label>
+                        <textarea class="form-control" id="observations" name="observations" rows="3" placeholder="Ajouter des notes sur le GEF..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span>Personnel</span>
+                <button type="button" class="btn btn-sm btn-outline-light" onclick="addPersonnel()"><i class="fas fa-plus"></i> Ajouter un employé</button>
+            </div>
+            <div class="card-body" id="personnel-container"></div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span>Téléphones</span>
+                <button type="button" class="btn btn-sm btn-outline-light" onclick="addTelephone()"><i class="fas fa-plus"></i> Ajouter un téléphone</button>
+            </div>
+            <div class="card-body" id="telephones-container"></div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span>Équipements</span>
+                <button type="button" class="btn btn-sm btn-outline-light" onclick="addEquipement()"><i class="fas fa-plus"></i> Ajouter un équipement</button>
+            </div>
+            <div class="card-body" id="equipements-container"></div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">Agréments</div>
+            <div class="card-body">
+                <div class="row">
+                {% for agrement in agrements %}
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="agrement_ids" value="{{ agrement.id }}" id="agrement-{{ agrement.id }}">
+                            <label class="form-check-label" for="agrement-{{ agrement.id }}">{{ agrement.nom }}</label>
+                        </div>
+                    </div>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <button type="submit" class="btn btn-primary btn-lg"><i class="fas fa-save"></i> Enregistrer le GEF</button>
+        </div>
+
+    </form>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // ✅ NOUVEAU BLOC DE SCRIPT COMPLET
+    $(document).ready(function() {
+        // --- Activation de Select2 ---
+        $('#wilayaSelect').select2({ placeholder: "-- Recherchez une wilaya --" });
+        $('#commune_c').select2({ placeholder: "-- Recherchez une commune --" });
+
+        // --- Logique de filtrage dynamique ---
+        $('#wilayaSelect').on('change', function() {
+            const wilayaCode = $(this).val();
+            const communeSelect = $('#commune_c');
+
+            communeSelect.empty().append('<option value="">Chargement...</option>').prop('disabled', true).trigger('change');
+
+            if (wilayaCode) {
+                fetch(`/api/communes/${wilayaCode}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        communeSelect.empty().append('<option value="">-- Sélectionnez une commune --</option>');
+                        data.forEach(commune => {
+                            const option = new Option(commune.nom, commune.code, false, false);
+                            communeSelect.append(option);
+                        });
+                        communeSelect.prop('disabled', false);
+                    })
+                    .catch(error => {
+                        console.error('Erreur lors du chargement des communes:', error);
+                        communeSelect.empty().append('<option value="">Erreur de chargement</option>');
+                    });
+            } else {
+                communeSelect.empty().append('<option value="">-- D\'abord, sélectionnez une wilaya --</option>').prop('disabled', true);
+            }
+        });
+    });
+
+    // --- Fonctions JavaScript pour ajouter dynamiquement des champs ---
+
+    function addPersonnel() {
+        const container = document.getElementById('personnel-container');
+        const newPersonnel = document.createElement('div');
+        newPersonnel.className = 'row align-items-center mb-2 personnel-row';
+        newPersonnel.innerHTML = `
+            <div class="col-md-4"><input type="text" name="personnel_nom" class="form-control" placeholder="Nom" required></div>
+            <div class="col-md-3"><input type="text" name="personnel_prenom" class="form-control" placeholder="Prénom" required></div>
+            <div class="col-md-4"><input type="text" name="personnel_profile" class="form-control" placeholder="Profil (ex: Ingénieur)" required></div>
+            <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.personnel-row').remove()"><i class="fas fa-trash"></i></button></div>
+        `;
+        container.appendChild(newPersonnel);
+    }
+
+    function addTelephone() {
+        const container = document.getElementById('telephones-container');
+        const newTelephone = document.createElement('div');
+        newTelephone.className = 'row align-items-center mb-2 telephone-row';
+        newTelephone.innerHTML = `
+            <div class="col-md-5">
+                <select name="telephone_type" class="form-select">
+                    <option value="Mobile">Mobile</option>
+                    <option value="Fixe">Fixe</option>
+                    <option value="Fax">Fax</option>
+                </select>
+            </div>
+            <div class="col-md-6"><input type="text" name="telephone_numero" class="form-control" placeholder="Numéro" required></div>
+            <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.telephone-row').remove()"><i class="fas fa-trash"></i></button></div>
+        `;
+        container.appendChild(newTelephone);
+    }
+    
+    function addEquipement() {
+        const container = document.getElementById('equipements-container');
+        const newEquipement = document.createElement('div');
+        newEquipement.className = 'row align-items-center mb-2 equipement-row';
+        newEquipement.innerHTML = `
+            <div class="col-md-8">
+                <select name="equipement_id" class="form-select">
+                    {% for equipement in type_equipements %}
+                        <option value="{{ equipement.id_type }}">{{ equipement.nom_type }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3"><input type="number" name="equipement_quantite" class="form-control" value="1" min="1" required></div>
+            <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('.equipement-row').remove()"><i class="fas fa-trash"></i></button></div>
+        `;
+        container.appendChild(newEquipement);
+    }
+</script>
+{% endblock %}
